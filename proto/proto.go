@@ -127,7 +127,6 @@ func (cp *CommProto) StructToBytes() []byte {
 	relLength += len(cp.Info[:])
 
 	var rawData = out[2 : len(out)-4]
-	util.DumpBytes(rawData)
 	var checkCode = C.crc_calc(((*C.uchar)(unsafe.Pointer(&rawData[0]))), C.ushort(len(out)-6))
 
 	// CheckCode
@@ -141,9 +140,6 @@ func (cp *CommProto) StructToBytes() []byte {
 	util.SliceMerge(out, relLength, buffer.Bytes())
 	relLength += len(buffer.Bytes())
 	buffer.Reset()
-
-	util.DumpBytes(out)
-
 	return out
 }
 
@@ -175,13 +171,20 @@ func (cp *CommProto) BytesToStruct(message []byte, tLen int) {
 
 	// frame type
 	var frameType uint8 = uint8((cp.FrameTypeInfoLen & 0xF800) >> 11)
-	_ = frameType
 	// info length
 	var infoLen uint16 = cp.FrameTypeInfoLen & 0x007FF
 
+	// TODO: 这个长度3 是 设备认证的返回，可能需要切换成其他的
+	// 帧类型为0x02则长度为3，帧类型其他则长度为16
 	// dev code (长度为3字节)
-	util.SliceMerge(cp.DevCode[:], 0, message[relLength:relLength+3]) // TODO: 这个长度3 是 设备认证的返回，可能需要切换成其他的
-	relLength += 3
+	fmt.Printf("## frameType = %02x\n", frameType)
+	var devCodeLen = 16
+	if frameType == 0x01 {
+		devCodeLen = 3
+	}
+
+	util.SliceMerge(cp.DevCode[:], 0, message[relLength:relLength+devCodeLen])
+	relLength += devCodeLen
 
 	// info (长度变化)
 	cp.Info = make([]byte, infoLen, infoLen)
@@ -205,8 +208,8 @@ func (request *CommProto) FillCommon() {
 	request.SetVendor(7)
 	request.SetFrameType(0)
 	var devCode = [16]byte{}
-	var relDevCode = []byte("373433343038")
-	//var relDevCode = []byte{0x19, 0x00, 0x21, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
+	//var relDevCode = []byte("373433343038")
+	var relDevCode = []byte{0x18, 0x00, 0x2A, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
 	//var relDevCode = []byte{0x19, 0x00, 0x21, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
 	for i, v := range relDevCode {
 		devCode[len(devCode)-len(relDevCode)+i] = v

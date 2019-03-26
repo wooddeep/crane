@@ -24,18 +24,30 @@ func StrToBytes(content string, length int) []byte {
 	return target
 }
 
-func DumpBytes(bytes []byte) {
-	fmt.Println("-----------")
-	for _, v := range bytes {
-		fmt.Printf("%02x ", v)
+func DumpBytes(args ...interface{}) {
+	var bytes []byte
+	var length int
+	var ok bool
+	if len(args) >= 1 {
+		bytes, ok = args[0].([]byte)
+		if ok != true {
+			fmt.Println("## [0] parameter error!")
+			return
+		}
+		length = len(bytes)
 	}
-	fmt.Println("\n-----------")
-}
 
-func DumpBytesByLen(bytes []byte, len int) {
+	if len(args) >= 2 {
+		length, ok = args[1].(int)
+		if ok != true {
+			fmt.Println("## [1] parameter error!")
+			return
+		}
+	}
+
 	fmt.Println("-----------")
 	for i, v := range bytes {
-		if i >= len {
+		if i >= length {
 			break
 		}
 		fmt.Printf("%02x ", v)

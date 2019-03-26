@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+	util.CurTimeToBytes()
 	addr, err := net.ResolveUDPAddr("udp", "101.207.139.194:9999")
 	if err != nil {
 		fmt.Println("net.ResolveUDPAddr fail.", err)
@@ -45,8 +46,8 @@ func main() {
 		return
 	}
 
-	util.DumpBytes(message)        // 请求
-	util.DumpBytesByLen(data, len) // 返回
+	util.DumpBytes(message)   // 请求
+	util.DumpBytes(data, len) // 返回
 
 	// data
 	var idVerifyResp = proto.CommProto{
@@ -56,6 +57,30 @@ func main() {
 	// fe fb 47 08 08 7b db 05 00 7b db 05 24 f3 0c 1a cc bc fe fa 回应帧
 
 	idVerifyResp.BytesToStruct(data, len)
+	fmt.Printf("from %s:%s\n", remoteAddr.String(), string(data))
 
+	//// 实时数据
+	var realDataReq = proto.RealDataReq{
+		CommProto: proto.CommProto{
+			DleStx: 0xFEFB,
+			DleEtx: 0xFEFA,
+		},
+	}
+	proto.Initilize(&realDataReq)
+	proto.ProtoEntry(&realDataReq)    // 框架调用每种协议的私有方法
+	realDataReq.FillCommon()          // 设置通用信息
+	message = realDataReq.ToCommMsg() // 生成通信用的数据
+	socket.Write(message)
+	data = make([]byte, 1024)
+	len, remoteAddr, err = socket.ReadFromUDP(data)
+	if err != nil {
+		fmt.Println("error recv data")
+		return
+	}
+
+	realDataReq.BytesToStruct(data, len)
+
+	util.DumpBytes(message)   // 请求
+	util.DumpBytes(data, len) // 返回
 	fmt.Printf("from %s:%s\n", remoteAddr.String(), string(data))
 }
