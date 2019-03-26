@@ -1,0 +1,320 @@
+package main
+
+/*
+#include <stdio.h>
+#include <stdlib.h>
+
+unsigned short crc16_calculate(unsigned char* pucSendBuf, unsigned short usLen)
+{
+	unsigned short i, j, k;
+	//printf("#################\n");
+	for (k = 0; k < usLen; k++) {
+		//printf("%02x ", *(pucSendBuf + k));
+	}
+	//printf("\n#################\n");
+
+	unsigned short usCrc = 0xFFFF;
+	for (i = 0; i < usLen; i++) {
+		usCrc ^= (unsigned short)pucSendBuf[i];
+		for (j = 0; j < 8; j++)	{
+           if (usCrc & 1) {
+				//usCrc >>= 1;
+				//usCrc ^= 0xA001;
+				usCrc = (usCrc >> 1) ^ 0xa001;
+           	} else {
+				usCrc >>= 1;
+			}
+		}
+	}
+	//printf("%d -- %02x\n", usCrc, usCrc);
+    return usCrc;
+}
+
+*/
+import "C"
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"net"
+	"os"
+	"unsafe"
+)
+
+type CommProto struct {
+	DleStx           uint16 // 默认值为 0xFEFB
+	VersionVendor    uint8
+	FrameTypeInfoLen uint16
+	DevCode          [16]byte
+	Info             []byte
+	CheckCode        uint16
+	DleEtx           uint16 // 默认值为 0xFEFA
+}
+
+type Error struct {
+	ErrCode int
+	ErrMsg  string
+}
+
+func NewError(code int, msg string) *Error {
+	return &Error{ErrCode: code, ErrMsg: msg}
+}
+
+func (err *Error) Error() string {
+	return err.ErrMsg
+}
+
+func (cp *CommProto) SetDleStx() {
+	cp.DleStx = 0xFEFB
+}
+
+func (cp *CommProto) SetDleEtx() {
+	cp.DleStx = 0xFEFA
+}
+
+// 协议版本固定为0x04
+func (cp *CommProto) SetVersion(version uint8) {
+	cp.VersionVendor = cp.VersionVendor | ((version & 0x000F) << 4)
+}
+
+func (cp *CommProto) SetVendor(vendor uint8) {
+	cp.VersionVendor = cp.VersionVendor | (vendor & 0x000F)
+}
+
+func (cp *CommProto) SetFrameType(frameType uint16) {
+	cp.FrameTypeInfoLen = cp.FrameTypeInfoLen | ((frameType & 0x001F) << 11)
+}
+
+func (cp *CommProto) SetInfoLen(vendor uint16) {
+	cp.FrameTypeInfoLen = cp.FrameTypeInfoLen | (vendor & 0x007FF)
+}
+
+func (cp *CommProto) SetDevCode(devCode [16]byte) {
+	cp.DevCode = devCode
+}
+
+func (cp *CommProto) SetInfo(info []byte) {
+	cp.Info = info
+}
+
+// 帧校验方式X16+X15+X2+1
+func (cp *CommProto) SetCheckCode(cc uint16) {
+	cp.CheckCode = cc
+}
+
+func (cp *CommProto) StructToBytes() []byte {
+	var length = 25 + len(cp.Info)
+	var out = make([]byte, length, length)
+	var relLength = 0
+
+	// DLE STX
+	buffer := new(bytes.Buffer)
+	binary.Write(buffer, binary.BigEndian, cp.DleStx)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// VERSION & VENDOR
+	binary.Write(buffer, binary.BigEndian, cp.VersionVendor)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// FrameTypeInfoLen
+	binary.Write(buffer, binary.BigEndian, cp.FrameTypeInfoLen)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// dev code
+	SliceMerge(out, relLength, cp.DevCode[:])
+	relLength += len(cp.DevCode[:])
+
+	// info
+	SliceMerge(out, relLength, cp.Info[:])
+	relLength += len(cp.Info[:])
+
+	var rawData = out[2 : len(out)-4]
+	DumpBytes(rawData)
+	var checkCode = C.crc16_calculate(((*C.uchar)(unsafe.Pointer(&rawData[0]))), C.ushort(len(out)-6))
+
+	// CheckCode
+	binary.Write(buffer, binary.BigEndian, uint16(checkCode)) //16910
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// DleEtx
+	binary.Write(buffer, binary.BigEndian, cp.DleEtx)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	DumpBytes(out)
+
+	return out
+}
+
+func (cp *CommProto) BytesToStruct() []byte {
+
+	var length = 25 + len(cp.Info)
+	var out = make([]byte, length, length)
+	var relLength = 0
+
+	// DLE STX
+	buffer := new(bytes.Buffer)
+	binary.Write(buffer, binary.BigEndian, cp.DleStx)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// VERSION & VENDOR
+	binary.Write(buffer, binary.BigEndian, cp.VersionVendor)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// FrameTypeInfoLen
+	binary.Write(buffer, binary.BigEndian, cp.FrameTypeInfoLen)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// dev code
+	SliceMerge(out, relLength, cp.DevCode[:])
+	relLength += len(cp.DevCode[:])
+
+	// info
+	SliceMerge(out, relLength, cp.Info[:])
+	relLength += len(cp.Info[:])
+
+	var rawData = out[2 : len(out)-4]
+	DumpBytes(rawData)
+	var checkCode = C.crc16_calculate(((*C.uchar)(unsafe.Pointer(&rawData[0]))), C.ushort(len(out)-6))
+
+	// CheckCode
+	binary.Write(buffer, binary.BigEndian, uint16(checkCode)) //16910
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	// DleEtx
+	binary.Write(buffer, binary.BigEndian, cp.DleEtx)
+	SliceMerge(out, relLength, buffer.Bytes())
+	relLength += len(buffer.Bytes())
+	buffer.Reset()
+
+	DumpBytes(out)
+
+	return out
+}
+
+func StrToBytes(content string, length int) []byte {
+	raw := []byte(content)
+	var target = make([]byte, length, length)
+	for i, v := range raw {
+		target[i] = v
+	}
+	return target
+}
+
+func DumpBytes(bytes []byte) {
+	fmt.Println("-----------")
+	for _, v := range bytes {
+		fmt.Printf("%02x ", v)
+	}
+	fmt.Println("\n-----------")
+}
+
+func DumpBytesByLen(bytes []byte, len int) {
+	fmt.Println("-----------")
+	for i, v := range bytes {
+		if i >= len {
+			break
+		}
+		fmt.Printf("%02x ", v)
+	}
+	fmt.Println("\n-----------")
+}
+
+func SliceMerge(pSlice []byte, pIndex int, cSlice []byte) error {
+	if len(pSlice)-pIndex+1 < len(cSlice) {
+		return NewError(1, "length error!")
+	}
+
+	for i, v := range cSlice {
+		pSlice[i+pIndex] = v
+	}
+	return nil
+}
+
+func (request *CommProto) FillRequest() []byte {
+	request.SetVersion(4)
+	request.SetVendor(7)
+	request.SetFrameType(0)
+	var devCode = [16]byte{}
+	//var relDevCode = []byte("373433343038")
+	//var relDevCode = []byte{0x19, 0x00, 0x21, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
+	var relDevCode = []byte{0x19, 0x00, 0x21, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
+	for i, v := range relDevCode {
+		devCode[len(devCode)-len(relDevCode)+i] = v
+	}
+	request.SetDevCode(devCode)
+	var idVerifyInfo = make([]byte, 64, 64)
+
+	// Info 字段和具体协议相关
+	var idInfo = StrToBytes("18002A000247373433343038", 32) // hdgd
+	SliceMerge(idVerifyInfo, 0, idInfo)
+	var passInfo = StrToBytes("czx", 32) // czx
+	SliceMerge(idVerifyInfo, 32, passInfo)
+
+	request.SetInfoLen(64)
+	request.SetInfo(idVerifyInfo)
+	request.StructToBytes()
+	message := request.StructToBytes()
+	return message
+}
+
+func main() {
+	addr, err := net.ResolveUDPAddr("udp", "101.207.139.194:9999")
+	if err != nil {
+		fmt.Println("net.ResolveUDPAddr fail.", err)
+		os.Exit(1)
+	}
+
+	socket, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		fmt.Println("net.DialUDP fail.", err)
+		os.Exit(1)
+	}
+	defer socket.Close()
+	fmt.Println("ok")
+
+	var idVerify = CommProto{
+		DleStx: 0xFEFB,
+		DleEtx: 0xFEFA,
+	}
+
+	message := idVerify.FillRequest()
+	socket.Write(message)
+	data := make([]byte, 1024)
+	len, remoteAddr, err := socket.ReadFromUDP(data)
+	if err != nil {
+		fmt.Println("error recv data")
+		return
+	}
+
+	DumpBytes(message)
+	DumpBytesByLen(data, len)
+
+	// data
+	var idVerifyResp = CommProto{
+		DleStx: 0xFEFB,
+		DleEtx: 0xFEFA,
+	}
+	// fe fb 47 08 08 7b db 05 00 7b db 05 24 f3 0c 1a cc bc fe fa 回应帧
+	_ = idVerifyResp
+
+	fmt.Printf("from %s:%s\n", remoteAddr.String(), string(data))
+}
