@@ -13,9 +13,9 @@ type IdCheckReq struct {
 }
 
 type IdCheckRes struct {
-	CheckRet byte
-	DevCode  [3]byte
-	CurTime  [4]byte
+	CommProto
+	DevCode [3]byte
+	CurTime [4]byte
 }
 
 func (icr *IdCheckReq) SetDevId(devId string) {
@@ -44,5 +44,15 @@ func (icr *IdCheckReq) SetPrivate(...interface{}) bool {
 	util.SliceMerge(buff, accLen, icr.Password[:])
 	icr.SetInfoLen(uint16(len))
 	icr.Info = buff
+	return true
+}
+
+func (icr *IdCheckReq) SetCommData(...interface{}) bool {
+	icr.FillCommon()
+	return true
+}
+
+func (ics *IdCheckRes) ParseInfo() bool {
+	fmt.Println("## ParseInfo!")
 	return true
 }

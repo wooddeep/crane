@@ -1,6 +1,8 @@
 package proto
 
 import (
+	"fmt"
+
 	"../util"
 )
 
@@ -43,5 +45,15 @@ func (rdr *RealDataReq) SetPrivate(...interface{}) bool {
 	rdr.Info = make([]byte, 42, 42)
 	util.SliceMerge(rdr.Info[:], 0, timeBytes)
 	//rdr.Info = buff
+	return true
+}
+
+func (rdr *RealDataReq) SetCommData(...interface{}) bool {
+	rdr.FillCommon()
+	return true
+}
+
+func (rds *RealDataRes) ParseInfo() bool {
+	fmt.Println("## RealDataRes ParseInfo!")
 	return true
 }

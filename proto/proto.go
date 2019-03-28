@@ -32,9 +32,16 @@ import (
 	"../util"
 )
 
-type Protocol interface {
+type Request interface {
 	Initilize(...interface{}) bool
+	SetCommData(...interface{}) bool
 	SetPrivate(...interface{}) bool
+	StructToBytes() []byte
+}
+
+type Response interface {
+	BytesToStruct(message []byte, tLen int)
+	ParseInfo() bool
 }
 
 type CommProto struct {
@@ -222,10 +229,14 @@ func (request *CommProto) ToCommMsg() []byte {
 	return message
 }
 
-func Initilize(proto Protocol) {
+func Initilize(proto Request) {
 	proto.Initilize()
 }
 
-func ProtoEntry(proto Protocol) {
+func ProtoPrivate(proto Request) {
 	proto.SetPrivate()
+}
+
+func ProtoCommData(proto Request) {
+	proto.SetCommData()
 }
