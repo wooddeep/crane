@@ -12,33 +12,53 @@ import (
 
 type StateMatrix struct {
 	Request  proto.Request // 声明了interface类型
+	InitPara []interface{}
+	PrivPara []interface{}
 	Response proto.Response
 }
 
 var statMatrix []StateMatrix = []StateMatrix{
-	{
-		Request: &proto.IdCheckReq{ // 实现Protocol接口时, receiver为指针, 故而此处为指针
-			CommProto: proto.CommProto{
-				DleStx: 0xFEFB,
-				DleEtx: 0xFEFA,
+	/*
+		{
+			Request: &proto.IdCheckReq{ // 身份验证, 实现Protocol接口时, receiver为指针, 故而此处为指针
+				CommProto: proto.CommProto{
+					DleStx: 0xFEFB,
+					DleEtx: 0xFEFA,
+				},
+			},
+			Response: &proto.IdCheckRes{
+				CommProto: proto.CommProto{
+					DleStx: 0xFEFB,
+					DleEtx: 0xFEFA,
+				},
 			},
 		},
-		Response: &proto.IdCheckRes{
-			CommProto: proto.CommProto{
-				DleStx: 0xFEFB,
-				DleEtx: 0xFEFA,
-			},
-		},
-	},
 
+		{
+			Request: &proto.RealDataReq{ // 实时数据
+				CommProto: proto.CommProto{
+					DleStx: 0xFEFB,
+					DleEtx: 0xFEFA,
+				},
+			},
+			Response: &proto.RealDataRes{
+				CommProto: proto.CommProto{
+					DleStx: 0xFEFB,
+					DleEtx: 0xFEFA,
+				},
+			},
+		},
+	*/
 	{
-		Request: &proto.RealDataReq{
+		Request: &proto.NewsReq{ // 信息数据
 			CommProto: proto.CommProto{
 				DleStx: 0xFEFB,
 				DleEtx: 0xFEFA,
 			},
 		},
-		Response: &proto.RealDataRes{
+		InitPara: []interface{}{},
+		PrivPara: []interface{}{3},
+		Response: &proto.NewsRes{
 			CommProto: proto.CommProto{
 				DleStx: 0xFEFB,
 				DleEtx: 0xFEFA,
@@ -50,10 +70,11 @@ var statMatrix []StateMatrix = []StateMatrix{
 func FrameWork(socket *net.UDPConn) {
 	for _, v := range statMatrix {
 		var request = v.Request
-		request.Initilize()   // 初始化请求
-		request.SetPrivate()  // 框架调用每种协议的私有方法, 设置私有数据
-		request.SetCommData() // 框架调用每种协议的公有方法, 设置共有数据
+		request.Initilize(v.InitPara...)  // 初始化请求
+		request.SetPrivate(v.PrivPara...) // 框架调用每种协议的私有方法, 设置私有数据, 用slice作为参数, 必须用...展开！！！
+		request.SetCommData()             // 框架调用每种协议的公有方法, 设置共有数据
 		message := request.StructToBytes()
+		util.DumpBytes(message) // 请求
 
 		socket.Write(message)
 		data := make([]byte, 1024)
@@ -62,8 +83,6 @@ func FrameWork(socket *net.UDPConn) {
 			fmt.Println("error recv data")
 			return
 		}
-
-		util.DumpBytes(message)   // 请求
 		util.DumpBytes(data, len) // 返回
 
 		var response = v.Response
