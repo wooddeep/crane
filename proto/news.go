@@ -221,7 +221,7 @@ func (rdr *NewsReq) SetPrivate(args ...interface{}) bool {
 }
 
 func (rdr *NewsReq) SetCommData(args ...interface{}) bool {
-	rdr.FillCommon()
+	rdr.FillCommon(0x04)
 	return true
 }
 

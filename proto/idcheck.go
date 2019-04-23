@@ -48,7 +48,7 @@ func (icr *IdCheckReq) SetPrivate(...interface{}) bool {
 }
 
 func (icr *IdCheckReq) SetCommData(...interface{}) bool {
-	icr.FillCommon()
+	icr.FillCommon(0x00)
 	return true
 }
 

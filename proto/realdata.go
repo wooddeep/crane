@@ -37,19 +37,43 @@ func (rdr *RealDataReq) Initilize(...interface{}) bool {
 	return true
 }
 
-func (rdr *RealDataReq) SetPrivate(...interface{}) bool {
+func (rdr *RealDataReq) SetPrivate(args ...interface{}) bool {
 	timeBytes := util.CurTimeToBytes()
 	util.SliceMerge(rdr.Time[:], 0, timeBytes)
+
+	fmt.Printf("# args = %v\n", args)
+	arg_0, _ := args[0].(int)
+	data := byte(arg_0)
+	fmt.Printf("# data = %v\n", byte(data))
 
 	rdr.SetInfoLen(42)
 	rdr.Info = make([]byte, 42, 42)
 	util.SliceMerge(rdr.Info[:], 0, timeBytes)
+
+	util.SliceMerge(rdr.Info[:], 4, []byte{data, data})
+	util.SliceMerge(rdr.Info[:], 6, []byte{data, data})
+	util.SliceMerge(rdr.Info[:], 8, []byte{data, data})
+	util.SliceMerge(rdr.Info[:], 10, []byte{data, data})
+
+	util.SliceMerge(rdr.Info[:], 12, []byte{data})
+	util.SliceMerge(rdr.Info[:], 13, []byte{data})
+	util.SliceMerge(rdr.Info[:], 14, []byte{data, data})
+	util.SliceMerge(rdr.Info[:], 16, []byte{data})
+	util.SliceMerge(rdr.Info[:], 17, []byte{data})
+
+	util.SliceMerge(rdr.Info[:], 18, []byte{data, data, data, data})
+	util.SliceMerge(rdr.Info[:], 22, []byte{data, data, data, data})
+	util.SliceMerge(rdr.Info[:], 26, []byte{data, data, data, data})
+	util.SliceMerge(rdr.Info[:], 30, []byte{data, data, data, data})
+	util.SliceMerge(rdr.Info[:], 34, []byte{data, data, data, data})
+	util.SliceMerge(rdr.Info[:], 38, []byte{data, data, data, data})
 	//rdr.Info = buff
+
 	return true
 }
 
 func (rdr *RealDataReq) SetCommData(...interface{}) bool {
-	rdr.FillCommon()
+	rdr.FillCommon(0x02)
 	return true
 }
 

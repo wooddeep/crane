@@ -11,44 +11,100 @@ import (
 )
 
 type StateMatrix struct {
-	Request  proto.Request // 声明了interface类型
-	InitPara []interface{}
-	PrivPara []interface{}
-	Response proto.Response
+	Request   proto.Request // 声明了interface类型
+	InitPara  []interface{}
+	PrivPara  []interface{}
+	Response  proto.Response
+	FrameType uint16
 }
 
 var statMatrix []StateMatrix = []StateMatrix{
-	/*
-		{
-			Request: &proto.IdCheckReq{ // 身份验证, 实现Protocol接口时, receiver为指针, 故而此处为指针
-				CommProto: proto.CommProto{
-					DleStx: 0xFEFB,
-					DleEtx: 0xFEFA,
-				},
-			},
-			Response: &proto.IdCheckRes{
-				CommProto: proto.CommProto{
-					DleStx: 0xFEFB,
-					DleEtx: 0xFEFA,
-				},
+	{
+		Request: &proto.IdCheckReq{ // 身份验证, 实现Protocol接口时, receiver为指针, 故而此处为指针
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
 			},
 		},
+		Response: &proto.IdCheckRes{
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		FrameType: 0x00,
+	},
 
-		{
-			Request: &proto.RealDataReq{ // 实时数据
-				CommProto: proto.CommProto{
-					DleStx: 0xFEFB,
-					DleEtx: 0xFEFA,
-				},
-			},
-			Response: &proto.RealDataRes{
-				CommProto: proto.CommProto{
-					DleStx: 0xFEFB,
-					DleEtx: 0xFEFA,
-				},
+	{
+		Request: &proto.RealDataReq{ // 实时数据
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
 			},
 		},
-	*/
+		PrivPara: []interface{}{0x55},
+		Response: &proto.RealDataRes{
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		FrameType: 0x02,
+	},
+
+	{
+		Request: &proto.RealDataReq{ // 实时数据
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		PrivPara: []interface{}{0xaa},
+		Response: &proto.RealDataRes{
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		FrameType: 0x02,
+	},
+
+	{
+		Request: &proto.NewsReq{ // 信息数据
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		InitPara: []interface{}{},
+		PrivPara: []interface{}{1},
+		Response: &proto.NewsRes{
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		FrameType: 0x04,
+	},
+
+	{
+		Request: &proto.NewsReq{ // 信息数据
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		InitPara: []interface{}{},
+		PrivPara: []interface{}{2},
+		Response: &proto.NewsRes{
+			CommProto: proto.CommProto{
+				DleStx: 0xFEFB,
+				DleEtx: 0xFEFA,
+			},
+		},
+		FrameType: 0x04,
+	},
+
 	{
 		Request: &proto.NewsReq{ // 信息数据
 			CommProto: proto.CommProto{
@@ -64,6 +120,7 @@ var statMatrix []StateMatrix = []StateMatrix{
 				DleEtx: 0xFEFA,
 			},
 		},
+		FrameType: 0x04,
 	},
 }
 
@@ -73,7 +130,7 @@ func FrameWork(socket *net.UDPConn) {
 		request.Initilize(v.InitPara...)  // 初始化请求
 		request.SetPrivate(v.PrivPara...) // 框架调用每种协议的私有方法, 设置私有数据, 用slice作为参数, 必须用...展开！！！
 		request.SetCommData()             // 框架调用每种协议的公有方法, 设置共有数据
-		message := request.StructToBytes()
+		message := request.StructToBytes(v.FrameType)
 		util.DumpBytes(message) // 请求
 
 		socket.Write(message)

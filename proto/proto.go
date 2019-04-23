@@ -36,7 +36,7 @@ type Request interface {
 	Initilize(...interface{}) bool
 	SetCommData(...interface{}) bool
 	SetPrivate(...interface{}) bool
-	StructToBytes() []byte
+	StructToBytes(frameType uint16) []byte
 }
 
 type Response interface {
@@ -48,7 +48,7 @@ type CommProto struct {
 	DleStx           uint16 // 默认值为 0xFEFB
 	VersionVendor    uint8
 	FrameTypeInfoLen uint16
-	DevCode          [16]byte
+	DevCode          []byte
 	Info             []byte
 	CheckCode        uint16
 	DleEtx           uint16 // 默认值为 0xFEFA
@@ -92,8 +92,12 @@ func (cp *CommProto) SetInfoLen(infoLen uint16) {
 	cp.FrameTypeInfoLen = cp.FrameTypeInfoLen | (infoLen & 0x007FF)
 }
 
-func (cp *CommProto) SetDevCode(devCode [16]byte) {
-	cp.DevCode = devCode
+func (cp *CommProto) SetDevCode(devCode []byte, devLen int) {
+	//cp.DevCode = devCode
+	cp.DevCode = make([]byte, devLen)
+	cp.DevCode = devCode[:]
+	fmt.Println("## SetDevCode")
+	util.DumpBytes(cp.DevCode, len(cp.DevCode))
 }
 
 // 帧校验方式X16+X15+X2+1
@@ -101,8 +105,12 @@ func (cp *CommProto) SetCheckCode(cc uint16) {
 	cp.CheckCode = cc
 }
 
-func (cp *CommProto) StructToBytes() []byte {
-	var length = 25 + len(cp.Info)
+func (cp *CommProto) StructToBytes(frameType uint16) []byte {
+	var commLen = 25
+	if frameType != 0x00 {
+		commLen = 25 - (16 - 3)
+	}
+	var length = commLen + len(cp.Info)
 	var out = make([]byte, length, length)
 	var relLength = 0
 
@@ -186,12 +194,16 @@ func (cp *CommProto) BytesToStruct(message []byte, tLen int) {
 	// dev code (长度为3字节)
 	fmt.Printf("## frameType = %02x\n", frameType)
 	var devCodeLen = 16
-	if frameType == 0x01 {
+	if frameType != 0x00 {
 		devCodeLen = 3
 	}
 
+	cp.DevCode = make([]byte, devCodeLen)
 	util.SliceMerge(cp.DevCode[:], 0, message[relLength:relLength+devCodeLen])
 	relLength += devCodeLen
+
+	fmt.Println("## GetRespDevCode")
+	util.DumpBytes(cp.DevCode, len(cp.DevCode))
 
 	// info (长度变化)
 	cp.Info = make([]byte, infoLen, infoLen)
@@ -210,22 +222,27 @@ func (cp *CommProto) BytesToStruct(message []byte, tLen int) {
 	return
 }
 
-func (request *CommProto) FillCommon() {
+func (request *CommProto) FillCommon(frameType uint16) {
 	request.SetVersion(4)
 	request.SetVendor(7)
 	request.SetFrameType(0)
-	var devCode = [16]byte{}
+	//var devCode = [16]byte{}
 	//var relDevCode = []byte("373433343038")
-	var relDevCode = []byte{0x18, 0x00, 0x2A, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
-	//var relDevCode = []byte{0x19, 0x00, 0x21, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
-	for i, v := range relDevCode {
-		devCode[len(devCode)-len(relDevCode)+i] = v
+	var relDevCode = []byte{0x00, 0x00, 0x00, 0x00, 0x18, 0x00, 0x2A, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
+	var devLen = 16
+	if frameType != 0x00 {
+		relDevCode = []byte{0x4a, 0x06, 0x9e}
+		devLen = 3
 	}
-	request.SetDevCode(devCode)
+	//var relDevCode = []byte{0x19, 0x00, 0x21, 0x00, 0x02, 0x47, 0x37, 0x34, 0x33, 0x34, 0x30, 0x38}
+	/*for i, v := range relDevCode {
+		devCode[len(devCode)-len(relDevCode)+i] = v
+	}*/
+	request.SetDevCode(relDevCode[:], devLen)
 }
 
-func (request *CommProto) ToCommMsg() []byte {
-	message := request.StructToBytes()
+func (request *CommProto) ToCommMsg(frameType uint16) []byte {
+	message := request.StructToBytes(frameType)
 	return message
 }
 
