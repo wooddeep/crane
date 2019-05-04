@@ -3,6 +3,7 @@ package proto
 import (
 	"fmt"
 
+	"../consts"
 	"../util"
 )
 
@@ -29,8 +30,13 @@ func (icr *IdCheckReq) SetPassword(password string) {
 }
 
 func (icr *IdCheckReq) Initilize(...interface{}) bool {
-	icr.SetDevId("18002A000247373433343038")
-	icr.SetPassword("czx")
+	//icr.SetDevId("18002A000247373433343038")
+	icr.SetDevId(consts.DevId)
+	icr.SetPassword(consts.Password)
+	//icr.SetPassword("czx")
+	//icr.SetDevId("180030000247373433343038")
+	//icr.SetPassword("cdhzkjyxgs")
+
 	return true
 }
 

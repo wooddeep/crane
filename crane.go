@@ -150,7 +150,9 @@ func FrameWork(socket *net.UDPConn) {
 
 func main() {
 
-	addr, err := net.ResolveUDPAddr("udp", "101.207.139.194:9999")
+	///171.221.172.141
+	//addr, err := net.ResolveUDPAddr("udp", "101.207.139.194:9999")
+	addr, err := net.ResolveUDPAddr("udp", "171.221.172.141:9999")
 	if err != nil {
 		fmt.Println("net.ResolveUDPAddr fail.", err)
 		os.Exit(1)
